@@ -27,7 +27,7 @@ class GrfxAsset(object):
         self.delay_on=0            #millisecs, used to automatically turn on visibility
         self.rect=location
         self.points=[]             #used to move the image around
-        self.speed=25              #millisec, how often does it update?
+        self.speed=250             #millisec, how often does it update?
         self.next_update=0         #once this value is exceeded by the system clock tics then an update occurs and this value is incremented by speed
         self.alpha=255
         self.fadedelta=0            #0 dont change alpha level
@@ -63,50 +63,79 @@ class GrfxControl():
 
     def update(self, tics):
         for asset in self.asset_list:
-            if tics > asset.next_update:
+            if not asset.delay_on:
+                if tics > asset.next_update:
+                    asset.next_update = tics + asset.speed
+                    #update asset stuff
+                    asset.alpha += asset.fadedelta
+                    if asset.alpha<0:
+                        # maybe check to see if we should auto remove the object once fully faded out <<<<<<<<<<<<<<<<<<<<<<<<<
+                        asset.alpha=0
+                        asset.fadedelta=0
+                    if asset.alpha>255:
+                        asset.alpha=255
+                        asset.fadedelta=0
+                    if len(asset.points)>0:         #see if there is a list of points
+                        asset.rect=asset.points.pop()   #pop a new location off the list
+            elif tics>asset.delay_on:
+                asset.delay_on=0
                 asset.next_update = tics + asset.speed
-                #update asset stuff
-                asset.alpha += asset.fadedelta
-                if asset.alpha<0:
-                    # maybe check to see if we should auto remove the object once fully faded out <<<<<<<<<<<<<<<<<<<<<<<<<
-                    asset.alpha=0
-                    asset.fadedelta=0
-                if asset.alpha>255:
-                    asset.alpha=255
-                    asset.fadedelta=0
 
     def draw(self):
         for asset in self.asset_list:
             asset.image.set_alpha(asset.alpha)
             self.screen.blit(asset.image, asset.rect)
 
-    def fade_in(self, idnum, fadechange=16):
+    def fade_in(self, idnum, fadespeed=50, fadechange=16):
+        found=False
         for asset in self.asset_list:
             if asset.id==idnum:
+                asset.alpha=0
                 asset.fadedelta=fadechange
+                asset.speed=fadespeed
                 print 'fading in {}'.format(idnum)
+                found=True
+        if not found: print 'fade_in: {} not found'.format(idnum)
 
-    def fade_out(self, idnum, fadechange=16):
+    def fade_out(self, idnum, fadespeed=50, fadechange=16):
+        found=False
         for asset in self.asset_list:
             if asset.id==idnum:
                 asset.fadedelta=-fadechange
+                asset.speed=fadespeed
                 print 'fading in {}'.format(idnum)
+                found=True
+        if not found: print 'fade_out: {} not found'.format(idnum)
 
     def remove(self, idnum):
         pass
 
     def turn_on(self, idnum):
-        pass
+        for asset in self.asset_list:
+            if asset.id==idnum:
+                asset.alpha=255
 
     def turn_off(self, idnum):
-        pass
+        for asset in self.asset_list:
+            if asset.id==idnum:
+                asset.alpha=0
 
-    def move_to(self, idnum):
-        pass
+    def move_to(self, idnum, offset, speed=50):
+        for asset in self.asset_list:
+            if asset.id==idnum:
+                asset.speed=speed
+                location=(asset.rect[X]+offset[X], asset.rect[Y]+offset[Y])
+                asset.points=function.get_line(location, asset.rect)
+                print '{}: {} to {}, {} points'.format(idnum, location, asset.rect, len(asset.points))
 
     def list_assets(self):
         for asset in self.asset_list:
             print '{}: loc {}, a:{}'.format(asset.id, asset.rect, asset.alpha)
+
+    def set_delay(self, idnum, delay=1000):
+        for asset in self.asset_list:
+            if asset.id==idnum:
+                asset.delay_on=pygame.time.get_ticks() + delay
 
 
 #-----------------------------------------------------------------------------------------------
@@ -119,7 +148,10 @@ def main():
     grfxs=GrfxControl(screen)
 
     txt='This is a test!'
-    t1=grfxs.add_text(txt, (25,25), (0,0,150,150), font, (96,0,0))
+    t1=grfxs.add_text(txt, (25,50), (0,0,150,150), font, (96,0,0))
+    grfxs.set_delay(t1,2000)
+    grfxs.fade_in(t1)
+    grfxs.move_to(t1, (0,-25))
     txt='Brother Jacob returned from a long journey feeling very sick. The doctor suspects that he has a case of scurvy.'
     t2=grfxs.add_text(txt, (25,250), (0,0,500,350), font, (0,0,96),2)
 
@@ -132,11 +164,12 @@ def main():
             elif event.type == KEYDOWN and event.key == K_ESCAPE:
                 running = False
             elif event.type == KEYDOWN and event.key == K_SPACE:
-                grfxs.fade_out(default_timer())
-                #print '{}'.format(default_timer())
+                grfxs.fade_out(t2)
+                grfxs.move_to(t2,(0,25))
+                #print '{}'.format(pygame.time.get_ticks())
 
         screen.blit(bkgrnd, (0,0))
-        grfxs.update(clock.get_rawtime())
+        grfxs.update(pygame.time.get_ticks())
         grfxs.draw()
         pygame.display.flip()
 
