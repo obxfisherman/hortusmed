@@ -5,12 +5,6 @@ from pygame.compat import geterror
 import constants as const
 
 
-class TextRectException:
-    def __init__(self, message = None):
-        self.message = message
-    def __str__(self):
-        return self.message
-
 #-----------------------------------------------------------------------------------------------
 def render_textrect(string, font, rect, text_color, background_color, justification=0, transparent=True):
     """Returns a surface containing the passed text string, reformatted
@@ -37,7 +31,7 @@ def render_textrect(string, font, rect, text_color, background_color, justificat
 
     #import pygame
     
-    aa=False
+    aa=True
 
     final_lines = []
 
@@ -52,7 +46,7 @@ def render_textrect(string, font, rect, text_color, background_color, justificat
             # if any of our words are too long to fit, return.
             for word in words:
                 if font.size(word)[0] >= rect.width:
-                    raise TextRectException, "The word " + word + " is too long to fit in the rect passed."
+                    print ">>> The word {} is too long to fit in the rect passed.".format(word)
             # Start a new line
             accumulated_line = ""
             for word in words:
@@ -69,6 +63,8 @@ def render_textrect(string, font, rect, text_color, background_color, justificat
 
     # Let's try to write the text out on the surface.
 
+    #surface = pygame.Surface(rect.size, pygame.SRCALPHA)
+
     surface = pygame.Surface(rect.size).convert()
     surface.set_alpha(0)
     surface.fill(background_color)
@@ -81,8 +77,8 @@ def render_textrect(string, font, rect, text_color, background_color, justificat
             #raise TextRectException, "Once word-wrapped, the text string was too tall to fit in the rect."
             print "*** Once word-wrapped, the text string was too tall to fit in the rect."
         if line != "":
-            tempsurface = font.render(line, aa, text_color).convert_alpha()
-            tempsurface.set_alpha(0)
+            tempsurface = font.render(line, aa, text_color)
+            #tempsurface.set_alpha(0)
             if justification == 0:
                 surface.blit(tempsurface, (0, accumulated_height))
             elif justification == 1:
@@ -90,13 +86,13 @@ def render_textrect(string, font, rect, text_color, background_color, justificat
             elif justification == 2:
                 surface.blit(tempsurface, (rect.width - tempsurface.get_width(), accumulated_height))
             else:
-                raise TextRectException, "Invalid justification argument: " + str(justification)
+                print "Invalid justification argument: {}".format(justification)
         accumulated_height += font.size(line)[1]
 
     return surface
 
 #-----------------------------------------------------------------------------------------------
-def get_line(start, end):
+def get_line(start, end, step=1):
     """Bresenham's Line Algorithm
     Produces a list of tuples from start and end
  
@@ -109,6 +105,7 @@ def get_line(start, end):
     [(3, 4), (2, 3), (1, 2), (1, 1), (0, 0)]
     """
     # Setup initial conditions
+    q=0
     x1, y1 = start
     x2, y2 = end
     dx = x2 - x1
@@ -142,7 +139,10 @@ def get_line(start, end):
     points = []
     for x in range(x1, x2 + 1):
         coord = (y, x) if is_steep else (x, y)
-        points.append(coord)
+        q+=1
+        if q==step:
+            points.append(coord)
+            q=0
         error -= abs(dy)
         if error < 0:
             y += ystep
@@ -155,16 +155,18 @@ def get_line(start, end):
 
 #-----------------------------------------------------------------------------------------------
 def load_image(name, colorkey=None):
-    fullname = os.path.join(data_dir, name)
+    #fullname = os.path.join(const.data_dir, name)
     try:
-        image = pygame.image.load(fullname)
+        image = pygame.image.load(name)
+        image.convert_alpha()
     except pygame.error:
-        print ('Cannot load image:', fullname)
-        raise SystemExit(str(geterror()))
-        # rather than raise an error, create a blank image <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-    image = image.convert()
+        print 'Cannot load image: {}'.format(name)
+        image=pygame.Surface((29,29)).convert()
+        image.fill((192,192,192,255))
+
     if colorkey is not None:
         if colorkey is -1:
             colorkey = image.get_at((0,0))
+            print 'getting colorkeyfrom image'
         image.set_colorkey(colorkey, RLEACCEL)
-    return image, image.get_rect()
+    return image

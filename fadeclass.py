@@ -4,13 +4,6 @@ from pygame.locals import *
 import constants as const
 import functions as function
 import time
- 
-if sys.platform == 'win32':
-    # On Windows, the best timer is time.clock
-    default_timer = time.clock
-else:
-    # On most other platforms the best timer is time.time
-    default_timer = time.time
 
 X=0
 Y=1
@@ -48,7 +41,7 @@ class GrfxControl():
         # position = location on the screen
         # size = size of the text box
         # render_textrect(string, font, rect, text_color, background_color, justification=0, transparent=True):
-        rendered_text = function.render_textrect(text, font, pygame.Rect(size), color, (0, 0, 0), justification, True)
+        rendered_text = function.render_textrect(text, font, pygame.Rect(size), color, const.clr_background, justification, True)
         asset=GrfxAsset(rendered_text, self.next_id, position)
         if visible:
             asset.alpha=255
@@ -58,8 +51,16 @@ class GrfxControl():
         self.next_id += 1
         return asset.id        
 
-    def load_image(self):
-        pass
+    def load_image(self,filename, position, visible=True,colorkey=None):
+        img=function.load_image(filename, colorkey)
+        asset=GrfxAsset(img, self.next_id, position)
+        if visible:
+            asset.alpha=255
+        else:
+            asset.alpha=0
+        self.asset_list.append(asset)
+        self.next_id += 1
+        return asset.id 
 
     def update(self, tics):
         for asset in self.asset_list:
@@ -120,13 +121,13 @@ class GrfxControl():
             if asset.id==idnum:
                 asset.alpha=0
 
-    def move_to(self, idnum, offset, speed=50):
+    def move_to(self, idnum, offset, speed=50, step=1):
         for asset in self.asset_list:
             if asset.id==idnum:
                 asset.speed=speed
                 location=(asset.rect[X]+offset[X], asset.rect[Y]+offset[Y])
-                asset.points=function.get_line(location, asset.rect)
-                print '{}: {} to {}, {} points'.format(idnum, location, asset.rect, len(asset.points))
+                asset.points=function.get_line(location, asset.rect, step)
+                #print '{}: {} to {}, {} points'.format(idnum, location, asset.rect, len(asset.points))
 
     def list_assets(self):
         for asset in self.asset_list:
@@ -142,18 +143,22 @@ class GrfxControl():
 #-----------------------------------------------------------------------------------------------
 def main():
     pygame.init()
-    screen = pygame.display.set_mode(const.SCRN_SIZE)
-    font=pygame.font.Font('newbaskerville.ttf', 36)
-    bkgrnd=pygame.image.load('paper017.jpg')
-    grfxs=GrfxControl(screen)
+    screen = pygame.display.set_mode(const.SCRN_SIZE)  # add pygame.FULLSCREEN for full screen
+    font=pygame.font.Font('assets/ITC-NewBaskervilleITCPro-Roman.otf', 36)
+    #bkgrnd=pygame.image.load('assets/paper017.jpg')
 
+    elements={}
+    grfxs=GrfxControl(screen)
+    elements['background']=grfxs.load_image(os.path.join(const.asset_dir,'paper017.jpg'),(0,0),const.clr_BLACK)
+    
     txt='This is a test!'
-    t1=grfxs.add_text(txt, (25,50), (0,0,150,150), font, (96,0,0))
-    grfxs.set_delay(t1,2000)
-    grfxs.fade_in(t1)
-    grfxs.move_to(t1, (0,-25))
+    elements['t1']=grfxs.add_text(txt, (35,50), (0,0,150,150), font, (96,0,0))
+    grfxs.set_delay(elements['t1'],2000)
+    grfxs.fade_in(elements['t1'])
+    grfxs.move_to(elements['t1'], (-10,-25))
     txt='Brother Jacob returned from a long journey feeling very sick. The doctor suspects that he has a case of scurvy.'
-    t2=grfxs.add_text(txt, (25,250), (0,0,500,350), font, (0,0,96),2)
+    t2=grfxs.add_text(txt, (25,250), (0,0,500,350), font, (0,0,96),1)
+    t3=grfxs.load_image(os.path.join(const.asset_dir,'face.png'),(400,50), -1)
 
     clock = pygame.time.Clock()
     running=True
@@ -165,10 +170,13 @@ def main():
                 running = False
             elif event.type == KEYDOWN and event.key == K_SPACE:
                 grfxs.fade_out(t2)
-                grfxs.move_to(t2,(0,25))
-                #print '{}'.format(pygame.time.get_ticks())
+                grfxs.move_to(t2,(0,35),2)
+            elif event.type == KEYDOWN and event.key == K_DELETE:
+                print 'delete'
+                grfxs.move_to(t3, (-10,25))
+                grfxs.fade_out(t3)
 
-        screen.blit(bkgrnd, (0,0))
+        #screen.blit(bkgrnd, (0,0))
         grfxs.update(pygame.time.get_ticks())
         grfxs.draw()
         pygame.display.flip()
